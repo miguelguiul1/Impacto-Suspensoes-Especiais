@@ -23,6 +23,7 @@ npm test               # testes do montador de link do WhatsApp
 npm run qa             # builds próprios + testes no navegador (com e sem JS) + screenshots em qa-output/
 npm run og             # regenera public/og.png a partir do desenho (rodar depois do build)
 npm run links          # confere se as 19 categorias abrem na loja (precisa de rede)
+npm run links -- --browser  # idem, abrindo cada página num Chromium (a loja monta o conteúdo com JS)
 ```
 
 O `npm run links` também roda no GitHub Actions (workflow "Links da loja",
