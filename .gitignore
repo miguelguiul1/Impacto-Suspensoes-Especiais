@@ -8,3 +8,5 @@ dist
 qa-output
 .DS_Store
 dist-proposta
+dist-qa
+dist-semurl

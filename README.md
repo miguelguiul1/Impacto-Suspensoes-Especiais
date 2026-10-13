@@ -20,9 +20,13 @@ Build e checagens:
 npm run build          # tsc + vite build → dist/
 npm run lint
 npm test               # testes do montador de link do WhatsApp
-npm run qa             # build da proposta + testes no navegador + screenshots em qa-output/
+npm run qa             # builds próprios + testes no navegador (com e sem JS) + screenshots em qa-output/
 npm run og             # regenera public/og.png a partir do desenho (rodar depois do build)
+npm run links          # confere se as 19 categorias abrem na loja (precisa de rede)
 ```
+
+O `npm run links` também roda no GitHub Actions (workflow "Links da loja",
+botão *Run workflow*), com o resultado em tabela no resumo da execução.
 
 `npm run qa` usa o Playwright. Numa máquina nova: `npx playwright install chromium`.
 
@@ -34,7 +38,25 @@ Veja `.env.example`. Nenhuma chave, token ou senha vai pro repositório.
 | --- | --- |
 | `VITE_PROPOSAL_MODE` | `true` mostra as marcas TODO-CONFIRMAR e o que depende do dono. Sem ela, nada disso aparece. |
 | `VITE_WHATSAPP_NUMBER` | Só depois de confirmado. `55` + DDD + número. Liga o botão de WhatsApp no controle e no contato. |
-| `VITE_SITE_URL` | URL pública (ex.: `https://impacto.vercel.app`) para `og:image` e `og:url` absolutos e `url` no JSON-LD. |
+| `VITE_SITE_URL` | URL pública completa, com `https://` (ex.: `https://impacto.vercel.app`). Gera `og:image`, `twitter:image` e `og:url` absolutos (`<VITE_SITE_URL>/og.png`) e o `url` do JSON-LD. |
+
+### Imagem de compartilhamento (og:image)
+
+WhatsApp, Facebook e X só mostram a prévia com URL absoluta. Por isso:
+
+- Com `VITE_SITE_URL` definido, o build escreve `og:image` e `twitter:image` como
+  `https://seu-dominio/og.png`.
+- Sem a variável (ou com valor inválido, ex.: sem `https://`), o build **avisa no
+  terminal** (`[impacto-seo] VITE_SITE_URL não definido…`) e deixa essas tags de
+  fora. Nunca gera URL relativa.
+- Na Vercel: *Settings → Environment Variables* → `VITE_SITE_URL` com o domínio
+  de cada ambiente (Production e Preview), e refazer o deploy.
+
+### Sem JavaScript
+
+O `index.html` publicado traz um `<noscript>` gerado no build a partir de
+`src/data` (nome, endereço, telefone, e-mail, as 19 categorias com link e a loja).
+Mudou um dado em `src/data`? O `<noscript>` acompanha sozinho.
 
 ## Deploy (Vercel)
 

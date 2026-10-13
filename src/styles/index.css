@@ -132,3 +132,40 @@
       22px 37.795px;
   }
 }
+
+/* Versão sem JavaScript (gerada no build dentro de <noscript>). */
+.nojs {
+  max-width: 40rem;
+  padding: 1.5rem 1rem 3rem;
+  line-height: 1.6;
+}
+.nojs-name {
+  font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.nojs address {
+  margin: 1rem 0 1.5rem;
+  font-style: normal;
+}
+.nojs h2 {
+  font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-bottom: 3px solid rgb(var(--c-ink));
+}
+.nojs ul {
+  margin: 0.5rem 0 1.5rem;
+}
+.nojs li {
+  border-bottom: 1px solid rgb(var(--c-ink) / 0.35);
+  padding: 0.35rem 0;
+}
+.nojs a {
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--c-red));
+  text-decoration-thickness: 2px;
+}

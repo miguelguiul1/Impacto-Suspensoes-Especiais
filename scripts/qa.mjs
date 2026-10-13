@@ -2,14 +2,19 @@
 // do vercel.json), testa o controle de altura faixa a faixa, os 19 links de
 // categoria, rolagem horizontal, erros de console/404 e tira screenshots.
 //
-// Uso: npm run build && npm run qa
-//      (o script também gera e testa o build do modo proposta em dist-proposta)
+// Uso: npm run qa
+//   Gera três builds próprios: produção (dist-qa) e proposta (dist-proposta) com
+//   um VITE_SITE_URL de teste, e um sem VITE_SITE_URL (dist-semurl) para conferir
+//   o aviso do build. Também testa a versão sem JavaScript (noscript).
 import { spawn, execSync } from 'node:child_process'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 
 const OUT = 'qa-output'
 const STORE = 'https://www.lojaimpactoespeciais.com.br'
+const QA_SITE_URL = 'https://impacto-qa.example.com'
+const CONCEPT = /cada carro tem a sua altura/i
+const NAME = 'Impacto Suspensões Especiais'
 const EXPECTED = {
   1: ['off-roads--4x4--lift', 'calco-lift-traseiro', 'utvs--can-am---polaris'],
   2: ['molas', 'amortecedortes', 'buchas-poliuretano', 'bandejas'],
@@ -153,13 +158,20 @@ async function run(label, dir, port, proposal) {
       robots: document.querySelector('meta[name="robots"]')?.content,
       ld: JSON.parse(document.querySelector('script[type="application/ld+json"]')?.textContent || 'null'),
       og: document.querySelector('meta[property="og:image"]')?.content,
+      tw: document.querySelector('meta[name="twitter:image"]')?.content,
+      title: document.title,
+      ogTitle: document.querySelector('meta[property="og:title"]')?.content ?? '',
     }))
     check(seo.robots === 'noindex, nofollow', 'meta robots noindex, nofollow')
     check(seo.ld?.['@type'] === 'LocalBusiness' && !seo.ld.openingHours, 'JSON-LD LocalBusiness sem horário inventado')
-    const og = await page.request.get(new URL(seo.og, url).href)
+    check(seo.og === `${QA_SITE_URL}/og.png`, `og:image absoluto (${seo.og})`)
+    check(seo.tw === `${QA_SITE_URL}/og.png`, `twitter:image absoluto (${seo.tw})`)
+    check(CONCEPT.test(seo.title) && seo.title.includes(NAME), `<title> com conceito e nome ("${seo.title}")`)
+    check(CONCEPT.test(seo.ogTitle) && seo.ogTitle.includes(NAME), `og:title com conceito e nome ("${seo.ogTitle}")`)
+    const og = await page.request.get(new URL('/og.png', url).href)
     check(
       og.ok() && og.headers()['content-type'] === 'image/png',
-      `og:image é PNG (${og.status()} ${og.headers()['content-type']})`,
+      `/og.png é PNG (${og.status()} ${og.headers()['content-type']})`,
     )
 
     const headers = (await page.request.get(url)).headers()
@@ -178,14 +190,70 @@ async function run(label, dir, port, proposal) {
       'com animação, o controle assenta na faixa 3 sozinho',
     )
     await anim.ctx.close()
+
+    // Sem JavaScript: o <noscript> estático precisa bastar
+    const nojs = await openPage(browser, url, 390, { javaScriptEnabled: false })
+    const fb = await nojs.page.evaluate(() => ({
+      text: document.body.innerText,
+      links: [...document.querySelectorAll('.nojs a')].map((a) => ({
+        href: a.getAttribute('href'),
+        rel: a.getAttribute('rel'),
+        text: a.textContent,
+      })),
+    }))
+    await nojs.page.screenshot({ path: `${OUT}/${label}-sem-js-390.png`, fullPage: true })
+    for (const fact of [
+      NAME,
+      'Rua Valter Ribeiro Marrany, 275',
+      'Vila Santa Maria',
+      '04810-010',
+      'São Paulo/SP',
+      '(11) 5666-5036',
+      'contato@impactoespeciais.com.br',
+    ]) {
+      check(fb.text.toLowerCase().includes(fact.toLowerCase()), `sem JS mostra "${fact}"`)
+    }
+    const fbHrefs = fb.links.map((l) => l.href)
+    check(
+      ALL_SLUGS.every((slug) => fbHrefs.includes(`${STORE}/${slug}/c`)) &&
+        fbHrefs.filter((h) => h.endsWith('/c')).length === 19,
+      `sem JS lista as 19 categorias com link real (${fbHrefs.filter((h) => h.endsWith('/c')).length})`,
+    )
+    check(fbHrefs.includes(STORE), 'sem JS tem o link da loja')
+    check(fbHrefs.includes('tel:+551156665036'), 'sem JS tem o telefone com tel:')
+    check(fbHrefs.includes('mailto:contato@impactoespeciais.com.br'), 'sem JS tem o e-mail com mailto:')
+    check(
+      fb.links.filter((l) => l.href.startsWith('http')).every((l) => l.rel === 'noopener noreferrer'),
+      'sem JS: links externos com rel="noopener noreferrer"',
+    )
+    check(!/TODO/i.test(fb.text), 'sem JS nenhuma marca TODO')
+    check(nojs.problems.length === 0, `sem JS sem erro de console/404 ${JSON.stringify(nojs.problems)}`)
+    await nojs.ctx.close()
   } finally {
     await browser.close()
     server.kill()
   }
 }
 
-execSync('npx vite build --mode proposta --outDir dist-proposta --emptyOutDir', { stdio: 'inherit' })
-await run('producao', 'dist', 4317, false)
+const build = (args, env) =>
+  execSync(`node node_modules/vite/bin/vite.js build --emptyOutDir ${args} 2>&1`, {
+    env: { ...process.env, ...env },
+    encoding: 'utf8',
+  })
+
+// Sem VITE_SITE_URL: o build tem que avisar e não gerar og:image relativo
+console.log('\n== build sem VITE_SITE_URL ==')
+const noUrlLog = build('--outDir dist-semurl', { VITE_SITE_URL: '' })
+const noUrlHtml = readFileSync('dist-semurl/index.html', 'utf8')
+check(noUrlLog.includes('VITE_SITE_URL não definido'), 'build sem VITE_SITE_URL avisa no terminal')
+check(!/og:image"|twitter:image"/.test(noUrlHtml), 'build sem VITE_SITE_URL não gera og:image/twitter:image')
+check(!noUrlHtml.includes('content="/og.png"'), 'nenhuma URL relativa de imagem nas meta tags')
+const badUrlLog = build('--outDir dist-semurl', { VITE_SITE_URL: 'impacto.vercel.app' })
+check(badUrlLog.includes('VITE_SITE_URL inválido'), 'VITE_SITE_URL sem https:// também avisa')
+
+build('--outDir dist-qa', { VITE_SITE_URL: QA_SITE_URL })
+build('--mode proposta --outDir dist-proposta', { VITE_SITE_URL: QA_SITE_URL })
+await run('producao', 'dist-qa', 4317, false)
 await run('proposta', 'dist-proposta', 4318, true)
 
 console.log(failures.length ? `\n${failures.length} falha(s).` : '\nTudo certo.')

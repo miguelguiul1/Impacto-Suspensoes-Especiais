@@ -1,0 +1,22 @@
+# Confere, num ambiente com rede, se as 19 categorias da loja abrem.
+# Roda à mão (Actions → "Links da loja" → Run workflow) ou quando a lista muda.
+name: Links da loja
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - src/data/categories.ts
+      - scripts/check-links.mjs
+      - .github/workflows/check-links.yml
+permissions:
+  contents: read
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/check-links.mjs
