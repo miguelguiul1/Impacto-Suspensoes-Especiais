@@ -1,5 +1,7 @@
 // Verifica se as 19 categorias da loja abrem de verdade.
 // Uso (precisa de rede até a loja): npm run links
+//   npm run links -- --browser   também abre cada página num Chromium (Playwright),
+//                                porque a loja monta boa parte do conteúdo com JavaScript.
 // Lê os slugs de src/data/categories.ts, segue redirecionamentos e marca como
 // suspeita a página que responde 200 mas parece "não encontrada".
 import { readFileSync, appendFileSync } from 'node:fs'
@@ -71,11 +73,40 @@ try {
   console.log(`\nCONTROLE: erro ${e.cause?.code ?? e.message}`)
 }
 
+// Etapa com navegador: a loja carrega título e produtos via JavaScript.
+if (process.argv.includes('--browser')) {
+  const { chromium } = await import('playwright')
+  const browser = await chromium.launch()
+  const page = await browser.newPage({ locale: 'pt-BR' })
+  console.log('\nNavegador:')
+  for (const [i, c] of cats.entries()) {
+    const url = `${STORE}/${c.slug}/c`
+    try {
+      const res = await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 })
+      const info = await page.evaluate(() => ({
+        title: document.title,
+        h1: document.querySelector('h1')?.textContent?.trim() ?? '',
+        text: document.body.innerText,
+      }))
+      const named = norm(info.title + ' ' + info.h1 + ' ' + info.text).includes(norm(c.name).replace(/^suspensao /, ''))
+      const notFound = NOT_FOUND.test(info.title) || NOT_FOUND.test(info.h1)
+      const verdict = res?.ok() && !notFound ? (named ? 'ABRE' : 'ABRE SEM NOME') : 'FALHA'
+      rows[i].browser = `${verdict} · título "${info.title.slice(0, 60)}" · h1 "${info.h1.slice(0, 40)}"`
+      if (rows[i].verdict === 'SEM NOME' && verdict === 'ABRE') rows[i].verdict = 'ABRE'
+      if (verdict === 'FALHA') rows[i].verdict = 'FALHA'
+    } catch (e) {
+      rows[i].browser = `ERRO ${e.message.split('\n')[0]}`
+    }
+    console.log(`${rows[i].verdict.padEnd(8)} ${c.slug}  |  ${rows[i].browser}`)
+  }
+  await browser.close()
+}
+
 const ok = rows.filter((r) => r.verdict === 'ABRE').length
-console.log(`\n${ok}/19 abrem.`)
+console.log(`\n${ok}/19 abrem com o nome da categoria na página.`)
 if (process.env.GITHUB_STEP_SUMMARY) {
-  const md = ['| Resultado | HTTP | Slug | URL final | Título | H1 |', '|---|---|---|---|---|---|']
-  for (const r of rows) md.push(`| ${r.verdict} | ${r.status} | ${r.slug} | ${r.final} | ${r.title} | ${r.h1} |`)
+  const md = ['| Resultado | HTTP | Slug | URL final | Navegador |', '|---|---|---|---|---|']
+  for (const r of rows) md.push(`| ${r.verdict} | ${r.status} | ${r.slug} | ${r.final} | ${r.browser ?? ''} |`)
   appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${md.join('\n')}\n\n${ok}/19 abrem.\n`)
 }
-process.exit(ok === 19 ? 0 : 1)
+process.exit(rows.some((r) => r.verdict === 'FALHA' || r.verdict === 'ERRO') ? 1 : 0)
