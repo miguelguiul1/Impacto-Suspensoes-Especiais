@@ -1,0 +1,42 @@
+{
+  "name": "impacto-suspensoes-especiais",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:proposta": "vite --mode proposta",
+    "build": "tsc -b && vite build",
+    "build:proposta": "tsc -b && vite build --mode proposta",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "test": "node --experimental-strip-types --no-warnings --test src/lib/*.test.ts",
+    "qa": "node scripts/qa.mjs",
+    "og": "node scripts/og.mjs"
+  },
+  "dependencies": {
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@radix-ui/react-slider": "^1.6.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "autoprefixer": "^10.6.1",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.13.0",
+    "playwright": "1.56.1",
+    "postcss": "^8.5.30",
+    "tailwindcss": "^3.4.19",
+    "typescript": "~5.9",
+    "typescript-eslint": "^8.71.2",
+    "vite": "^8.3.4"
+  }
+}
